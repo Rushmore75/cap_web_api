@@ -3,6 +3,7 @@ use std::time::SystemTime;
 
 use diesel::prelude::*;
 use diesel::{PgConnection, Connection};
+use rocket::FromForm;
 use serde::Deserialize;
 
 use crate::authentication::Keyring;
@@ -90,7 +91,7 @@ pub struct NewAccount<'a> {
 }
 
 /// [`Account`] as represented in the body of a HTTP request.
-#[derive(Deserialize)]
+#[derive(Deserialize, FromForm)]
 pub struct BodyAccount<'a> {
     pub email: &'a str,
     pub password: &'a str,
@@ -255,19 +256,14 @@ impl Ticket {
     }
     
     pub fn get(find_id: i32) -> Option<Ticket> {
-
         use crate::schema::ticket::dsl::*;
 
-        // TODO find the "take 1" sql method for diesel
-        let results: Vec<Self> = ticket 
+        let results: Self = ticket 
             .filter(id.eq(find_id))
-            .load::<Self>(&mut establish_connection())
+            .first(&mut establish_connection())
             .expect("Error loading tickets.");
-
-        match results.into_iter().next() {
-            Some(x) => Some(x),
-            None => None,
-        }
+            
+        Some(results)
     }
 
     pub fn get_all_for(user: &Account) -> Vec<i32> {

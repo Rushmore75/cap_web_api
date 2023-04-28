@@ -1,8 +1,8 @@
-use std::str::{FromStr, Utf8Error};
+use std::str::FromStr;
 
 use bimap::BiMap;
 use crypto::{scrypt::{scrypt, ScryptParams}};
-use rocket::{request::{FromRequest, self, Outcome}, Request, tokio::sync::RwLock, http::Status};
+use rocket::{request::{FromRequest, self, Outcome}, Request, tokio::sync::RwLock, http::{Status, CookieJar, Cookie}};
 use serde::Serialize;
 
 use crate::db::Account;
@@ -45,7 +45,7 @@ impl Keyring {
     /// # Login
     /// Will try to log the user designated by the given email and password.
     /// If this attempt it successful it will return them a new [`Session`].
-    fn login(&mut self, email: &str, password: &str) -> Option<Session> {
+    pub fn login(&mut self, email: &str, password: &str, jar: &CookieJar) -> Option<Session> {
         // search the db for the account under that email.
         match Account::get_users_hash(email) {
             Some(stored_hash) => {
@@ -54,6 +54,9 @@ impl Keyring {
                     // generate them a user id
                     let user_id = Uuid::from(uuid::Uuid::new_v4());
                     self.all.insert(email.to_string(), user_id);
+                    // save this new session to the user's cookie jar
+                    jar.add_private(Cookie::new(LOGIN_COOKIE_ID, user_id.to_string()));
+
                     return Some(Session::new(user_id, email.to_owned()));
                 } 
             },  
@@ -161,7 +164,7 @@ impl<'r> FromRequest<'r> for Session {
         if let Some(keyring) = req.rocket().state::<RwLock<Keyring>>() {                    
             
             // Check the user's cookies for a session id 
-            if let Some(session_cookie) = req.cookies().get(LOGIN_COOKIE_ID) {
+            if let Some(session_cookie) = req.cookies().get_private(LOGIN_COOKIE_ID) {
                 // Extract the cookie into a uuid
                 if let Ok(id) = uuid::Uuid::from_str(session_cookie.value()) {
                     if keyring.read().await.is_valid_session_uuid(&Uuid::from(id)) {
@@ -173,22 +176,6 @@ impl<'r> FromRequest<'r> for Session {
                     }
                 }    
             };
-            // Something above, has at this point, gone wrong.
-
-            // TODO potentially shouldn't log in the user with the authenticate method.
-            // But at the same time there isn't really a reason to add complexity.
-
-            // If they have both their email and password in the headers, log them in.
-            if let Some(email) = req.headers().get_one(EMAIL_HEADER_ID) {
-                if let Some(password) = req.headers().get_one(PASSWORD_HEADER_ID) {
-                    if let Some(id) = keyring.write().await.login(email, password) {
-                        println!("Authenticating via user/pass combo");
-                        // TODO add a way to tell the user to change from email / password method
-                        // to the session id method
-                        return Outcome::Success( id );
-                    }
-                }
-            }
         };
 
         // Logging in with a session id and email/password combo have both failed        

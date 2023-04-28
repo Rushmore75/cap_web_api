@@ -1,19 +1,29 @@
-use rocket::{get, serde::json::Json, post, response::status, http::Status, tokio::sync::RwLock, State};
+use rocket::{get, serde::json::Json, post, response::status, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}};
 
 use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
 
-#[get("/login")]
-pub fn login(auth: Session) -> Json<Session> {
-    Json::from(auth)
+// #[get("/api/login")]
+// pub fn login(auth: Session) -> Json<Session> {
+//     Json::from(auth)
+// }
+
+#[post("/api/login", data="<credentials>")]
+pub async fn login(credentials: Form<Strict<BodyAccount<'_>>>, keyring: &State<RwLock<Keyring>>, jar: &CookieJar<'_>) -> status::Custom<String> {
+    // Json::from(auth)
+    match keyring.write().await.login(credentials.email, credentials.password, jar) {
+        // TODO make this redirect to somewhere
+        Some(_) => status::Custom(Status::Accepted, "Logged in".to_owned()),
+        None => status::Custom(Status::BadRequest, "Failed to login".to_owned())
+    }
 }
 
-#[get("/logout")]
+#[get("/api/logout")]
 pub async fn logout(auth: Session, keyring: &State<RwLock<Keyring>>) -> status::Accepted<&'static str> {
     keyring.write().await.logout(&auth);
     status::Accepted(Some("logged out"))
 }
 
-#[post("/submit_ticket", data="<body>")]
+#[post("/api/submit_ticket", data="<body>")]
 pub async fn submit_ticket(auth: Session, keyring: &State<RwLock<Keyring>>, body: Json<BodyTicket<'_>>) -> status::Custom<String> {
 
     if let Some(account) = Account::get(&auth.email) {
@@ -28,7 +38,7 @@ pub async fn submit_ticket(auth: Session, keyring: &State<RwLock<Keyring>>, body
     status::Custom(Status::InternalServerError, "Could not create the ticket.".to_owned())                        
 }
 
-#[post("/assign_ticket", data="<body>")]
+#[post("/api/assign_ticket", data="<body>")]
 pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
     // get the user's email
     if let Some(from) = Account::get(&auth.email) {
@@ -42,6 +52,7 @@ pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
                     Err(e) => {
                         // Cancel the operation
                         // TODO undo all tickets assigned thus far
+                        // looking for sql transaction iirc
                         todo!()
                     }
                 }
@@ -52,7 +63,7 @@ pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
 }
 
 
-#[get("/tickets")]
+#[get("/api/tickets")]
 pub fn my_tickets(auth: Session) {
     if let Some(acc) = Account::get(&auth.email) {
         let tickets = Ticket::get_all_for(&acc);
@@ -60,7 +71,7 @@ pub fn my_tickets(auth: Session) {
     }
 }
 
-#[post("/create_user", data="<body>")]
+#[post("/api/create_user", data="<body>")]
 pub fn create_user(body: Json<BodyAccount>) -> status::Custom<&'static str> {
     
     match Dept::get_or_create("basic") {
