@@ -1,6 +1,6 @@
 use rocket::{get, serde::json::Json, post, response::status, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}};
 
-use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
+use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring, self, SESSION_COOKIE_ID}};
 
 // #[get("/api/login")]
 // pub fn login(auth: Session) -> Json<Session> {
@@ -18,8 +18,8 @@ pub async fn login(credentials: Form<Strict<BodyAccount<'_>>>, keyring: &State<R
 }
 
 #[get("/api/logout")]
-pub async fn logout(auth: Session, keyring: &State<RwLock<Keyring>>) -> status::Accepted<&'static str> {
-    keyring.write().await.logout(&auth);
+pub async fn logout(auth: Session, keyring: &State<RwLock<Keyring>>, jar: &CookieJar<'_>) -> status::Accepted<&'static str> {
+    keyring.write().await.logout(&auth, jar);
     status::Accepted(Some("logged out"))
 }
 

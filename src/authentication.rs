@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::db::Account;
 
-const LOGIN_COOKIE_ID: &str = "session-id";
+pub const SESSION_COOKIE_ID: &str = "session-id";
 const EMAIL_HEADER_ID: &str = "email";
 const PASSWORD_HEADER_ID: &str = "password";
 
@@ -55,7 +55,7 @@ impl Keyring {
                     let user_id = Uuid::from(uuid::Uuid::new_v4());
                     self.all.insert(email.to_string(), user_id);
                     // save this new session to the user's cookie jar
-                    jar.add_private(Cookie::new(LOGIN_COOKIE_ID, user_id.to_string()));
+                    jar.add_private(Cookie::new(SESSION_COOKIE_ID, user_id.to_string()));
 
                     return Some(Session::new(user_id, email.to_owned()));
                 } 
@@ -65,7 +65,8 @@ impl Keyring {
         None
     }
     
-    pub fn logout(&mut self, session: &Session) {
+    pub fn logout(&mut self, session: &Session, jar: &CookieJar) {
+        jar.remove_private(Cookie::named(SESSION_COOKIE_ID));
         self.all.remove_by_right(&session.uuid);
     }
     
@@ -164,7 +165,7 @@ impl<'r> FromRequest<'r> for Session {
         if let Some(keyring) = req.rocket().state::<RwLock<Keyring>>() {                    
             
             // Check the user's cookies for a session id 
-            if let Some(session_cookie) = req.cookies().get_private(LOGIN_COOKIE_ID) {
+            if let Some(session_cookie) = req.cookies().get_private(SESSION_COOKIE_ID) {
                 // Extract the cookie into a uuid
                 if let Ok(id) = uuid::Uuid::from_str(session_cookie.value()) {
                     if keyring.read().await.is_valid_session_uuid(&Uuid::from(id)) {
