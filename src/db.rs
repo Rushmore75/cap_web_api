@@ -2,7 +2,6 @@ use std::env;
 use std::fmt::Display;
 use std::time::SystemTime;
 
-use diesel::deserialize::FromStaticSqlRow;
 use diesel::prelude::*;
 use diesel::result::Error;
 use diesel::{PgConnection, Connection};

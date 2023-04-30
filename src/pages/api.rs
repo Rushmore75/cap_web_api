@@ -1,6 +1,6 @@
-use rocket::{get, serde::json::Json, post, response::{status, Redirect}, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}, catch};
+use rocket::{get, serde::json::Json, post, response::{status, Redirect}, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}};
 
-use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring, self, SESSION_COOKIE_ID}};
+use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
 
 // #[get("/api/login")]
 // pub fn login(auth: Session) -> Json<Session> {
