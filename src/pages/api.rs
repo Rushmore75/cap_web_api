@@ -1,17 +1,11 @@
 use rocket::{get, serde::json::Json, post, response::{status, Redirect}, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}};
 
-use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyMessage, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
-
-// #[get("/api/login")]
-// pub fn login(auth: Session) -> Json<Session> {
-//     Json::from(auth)
-// }
+use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
 
 #[post("/api/login", data="<credentials>")]
 pub async fn login(credentials: Form<Strict<BodyAccount<'_>>>, keyring: &State<RwLock<Keyring>>, jar: &CookieJar<'_>) -> Result<Redirect, status::BadRequest<&'static str>> {
     // Json::from(auth)
     match keyring.write().await.login(credentials.email, credentials.password, jar) {
-        // TODO make this redirect to somewhere
         Some(_) => Ok(Redirect::to("/dashboard")),
         None => Err(status::BadRequest(Some("Failed to login."))) 
     }
@@ -24,7 +18,7 @@ pub async fn logout(auth: Session, keyring: &State<RwLock<Keyring>>, jar: &Cooki
 }
 
 #[post("/api/submit_ticket", data="<body>")]
-pub async fn submit_ticket(auth: Session, keyring: &State<RwLock<Keyring>>, body: Form<Strict<BodyTicket<'_>>>) -> status::Custom<String> {
+pub async fn submit_ticket(auth: Session, body: Form<Strict<BodyTicket<'_>>>) -> status::Custom<String> {
 
     if let Ok(account) = Account::get(&auth.email) {
         if let Ok(title) = Message::new(&account, body.title).load() {
@@ -38,12 +32,19 @@ pub async fn submit_ticket(auth: Session, keyring: &State<RwLock<Keyring>>, body
     status::Custom(Status::InternalServerError, "Could not create the ticket.".to_owned())                        
 }
 
-pub fn unassigned_tickets(auth: Session) {
-    if let Ok(account) = Account::get(&auth.email) {
-        // TODO make this a supervisor only path
-        // TODO figure out a way to find tickets not assigned to someone
-        
+#[get("/api/unassigned")]
+pub fn unassigned_tickets(_auth: Session) -> Json<Vec<Ticket>> {
+    // TODO make this a supervisor only path
+    if let Ok(all) = Ticket::get_all_unassigned() {
+        let x = all
+            .iter()
+            .map(|f| Ticket::get(*f))
+            .filter(|f| f.is_ok())
+            .map(|f| f.unwrap())
+            .collect::<Vec<Ticket>>();
+        return Json::from(x);
     }
+    Json::from(Vec::new())
 }
 
 #[post("/api/assign_ticket", data="<body>")]
@@ -99,7 +100,7 @@ pub fn owned_tickets(auth: Session) -> Option<Json<Vec<(String, String)>>> {
 #[post("/api/create_user", data="<body>")]
 pub fn create_user(body: Json<BodyAccount>) -> status::Custom<&'static str> {
     
-    match Dept::get_or_create(&crate::db::Departments::Client) {
+    match Dept::get_or_create(&crate::db::Department::Client) {
         Ok(dept) => {
             match Account::new(
                 body.email,
@@ -125,3 +126,14 @@ pub fn create_user(body: Json<BodyAccount>) -> status::Custom<&'static str> {
 
     status::Custom(Status::InternalServerError, "Unhandled error while creating user.") 
 }
+
+#[get("/api/get_employees")]
+pub fn get_employees(_auth: Session) -> Json<Vec<String>> {
+    // TODO supervisors only path
+    if let Ok(accs) = Dept::all_from(crate::db::Department::Flunky) {
+        return Json::from(accs);        
+    }
+    Json::from(Vec::new())
+}
+
+

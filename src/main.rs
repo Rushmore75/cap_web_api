@@ -28,10 +28,12 @@ async fn main() -> Result<(), rocket::Error> {
             assign_ticket,
             owned_tickets,
             my_tickets,
-            dashboard, 
+            get_employees,
+            dashboard,
+            unassigned_tickets
             ])
         .mount("/", FileServer::from(format!("{WWW}www")))
-        // a hashmap of all logged in users
+        // a hashmap of all logged in users (effectively)
         .manage(RwLock::new(authentication::Keyring::new()))
         .launch()
         .await?;

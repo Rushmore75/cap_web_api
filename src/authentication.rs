@@ -70,12 +70,6 @@ impl Keyring {
         self.all.remove_by_right(&session.uuid);
     }
     
-    /// Check if the session id you have is valid.
-    #[must_use]
-    fn is_valid_session(&self, session_id: &Session) -> bool {
-        self.is_valid_session_uuid(&session_id.uuid)
-    }
-    
     #[must_use]
     fn is_valid_session_uuid(&self, uuid: &Uuid) -> bool {
         self.get_email_by_session_uuid(uuid).is_some()
