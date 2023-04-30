@@ -36,37 +36,36 @@ pub struct NewDept<'a> {
 }
 
 #[derive(Debug)]
-pub enum Departments {
+pub enum Department {
     Client,
     Flunky,
     Supervisor,
 }
 
-impl Departments {
+impl Department {
     fn as_string(&self) -> &'static str {
         match self {
-            Departments::Client => "client",
-            Departments::Flunky => "flunky",
-            Departments::Supervisor => "supervisor",
+            Department::Client => "client",
+            Department::Flunky => "flunky",
+            Department::Supervisor => "supervisor",
         }
     }
 }
 
-impl Display for Departments {
+impl Display for Department {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_string()) 
     }
 }
 
-
 impl Dept {
-    pub fn new(name: &Departments) -> NewDept<'static> {
+    pub fn new(name: &Department) -> NewDept<'static> {
         NewDept {
             dept_name: name.as_string()
         }
     }
     
-    pub fn get_id(name: &Departments) -> Result<Self, Error> {
+    pub fn get_id(name: &Department) -> Result<Self, Error> {
         use crate::schema::dept::dsl::*;
 
         let results: Result<Self, Error> = dept
@@ -76,7 +75,7 @@ impl Dept {
         results 
     }
     
-    pub fn get_or_create(name: &Departments) -> Result<Self, diesel::result::Error> {
+    pub fn get_or_create(name: &Department) -> Result<Self, diesel::result::Error> {
         let find = Self::get_id(name);
         match find {
             Ok(x) => Ok(x),
@@ -89,12 +88,28 @@ impl Dept {
         }
     }
     
-    pub fn get_department_name(&self) -> Departments {
+    pub fn get_department_name(&self) -> Department {
         match self.dept_name.as_str() {
-           "flunky" => Departments::Flunky,
-           "supervisor" => Departments::Supervisor,
-           _ => Departments::Client,
+           "flunky" => Department::Flunky,
+           "supervisor" => Department::Supervisor,
+           _ => Department::Client,
         }
+    }
+    
+    /// Get all the emails of the accounts belonging to that department.
+    pub fn all_from(dept: Department) -> Result<Vec<String>, Error> {
+
+        let x: Result<Vec<String>, Error> = dept::dsl::dept
+            .inner_join(
+                account::dsl::account.on(
+                    dept::dsl::id.eq(account::dsl::dept)
+                    .and(dept::dsl::dept_name.eq(dept.as_string()))
+                )
+            )    
+            .select(account::dsl::email)
+            .load(&mut establish_connection());
+        x
+
     }
 
 }
@@ -117,7 +132,7 @@ impl NewDept<'_> {
 pub struct Account {
     id: i32,
     email: String,
-    dept: Option<i32>,
+    dept: i32,
     password_hash: Vec<u8>,
 }
 
@@ -189,20 +204,12 @@ impl Account {
         }
     }
     
-    fn create_ticket(&self, title: &str, body: &str) -> Result<Ticket, diesel::result::Error> {
-        
-        let i_title = Message::new(&self, title).load()?;
-        let i_body = Message::new(&self, body).load()?;
-
-        Ticket::new(&self, i_title, i_body).load()
-    }
-    
     pub fn get_dept(&self) -> Result<Dept, Error> {
          
         use crate::schema::dept::dsl::*;
 
         let results: Result<Dept, Error> = dept 
-            .filter(id.eq(self.id))
+            .filter(id.eq(self.dept))
             .first(&mut establish_connection());
         results
     }
@@ -237,11 +244,6 @@ pub struct Message {
 pub struct NewMessage<'a> {
     author: i32,
     content: &'a str, 
-}
-
-/// [`Message`] as represented by the body of a HTTP request.
-pub struct BodyMessage<'a> {
-    content: &'a str,
 }
 
 impl Message {
@@ -340,8 +342,16 @@ impl Ticket {
         results
     }
 
-    pub fn get_all_unassigned() {
-        
+    pub fn get_all_unassigned() -> Result<Vec<i32>, Error> {
+        let x = ticket::dsl::ticket
+            .left_outer_join(
+                assignment::dsl::assignment
+                .on(ticket::dsl::id.eq(assignment::dsl::ticket))
+            )
+            .filter(assignment::dsl::ticket.is_null())
+            .select(ticket::dsl::id)
+            .load(&mut establish_connection());
+        x
     }
 
 }
@@ -392,8 +402,6 @@ impl Assignment {
         } 
     }
 }
-
-
 
 impl NewAssignment {
     pub fn load(&self) -> Result<Assignment, diesel::result::Error>{

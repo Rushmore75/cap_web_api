@@ -4,7 +4,7 @@ diesel::table! {
     account (id) {
         id -> Int4,
         email -> Varchar,
-        dept -> Nullable<Int4>,
+        dept -> Int4,
         password_hash -> Bytea,
     }
 }

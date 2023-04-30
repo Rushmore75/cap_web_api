@@ -1,13 +1,13 @@
 -- Your SQL goes here
 CREATE TABLE dept (
     id          SERIAL PRIMARY KEY,
-    dept_name   VARCHAR NOT NULL
+    dept_name   VARCHAR UNIQUE NOT NULL
 );
 
 CREATE TABLE account (
     id              SERIAL PRIMARY KEY,
     email           VARCHAR UNIQUE NOT NULL,
-    dept            INT REFERENCES dept (id),
+    dept            INT REFERENCES dept (id) NOT NULL,
     password_hash   BYTEA NOT NULL
 );
 
