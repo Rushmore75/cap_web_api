@@ -1,10 +1,13 @@
 use std::env;
+use std::fmt::Display;
 use std::time::SystemTime;
 
+use diesel::deserialize::FromStaticSqlRow;
 use diesel::prelude::*;
+use diesel::result::Error;
 use diesel::{PgConnection, Connection};
 use rocket::FromForm;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::authentication::Keyring;
 use crate::schema::{account, dept, message, assignment, ticket, self};
@@ -21,9 +24,9 @@ pub fn establish_connection() -> PgConnection {
 //=======================================
 //              Department
 //=======================================
-#[derive(Queryable)]
+#[derive(Queryable, Debug)]
 pub struct Dept {
-    id: i32,
+    pub id: i32,
     dept_name: String,
 }
 
@@ -33,31 +36,68 @@ pub struct NewDept<'a> {
     dept_name: &'a str,
 }
 
+#[derive(Debug)]
+pub enum Departments {
+    Client,
+    Flunky,
+    Supervisor,
+}
+
+impl Departments {
+    fn as_string(&self) -> &'static str {
+        match self {
+            Departments::Client => "client",
+            Departments::Flunky => "flunky",
+            Departments::Supervisor => "supervisor",
+        }
+    }
+}
+
+impl Display for Departments {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_string()) 
+    }
+}
+
+
 impl Dept {
-    pub fn new(name: &str) -> NewDept {
+    pub fn new(name: &Departments) -> NewDept<'static> {
         NewDept {
-            dept_name: name                       
+            dept_name: name.as_string()
         }
     }
     
-    pub fn get_id(name: &str) -> Vec<Self> {
+    pub fn get_id(name: &Departments) -> Result<Self, Error> {
         use crate::schema::dept::dsl::*;
 
-        let results: Vec<Self> = dept
-            .filter(dept_name.eq(name))
-            .load::<Self>(&mut establish_connection())
-            .expect("Error loading departments");
+        let results: Result<Self, Error> = dept
+            .filter(dept_name.eq(name.as_string()))
+            .first(&mut establish_connection());
         
         results 
     }
     
-    pub fn get_or_create(name: &str) -> Result<Self, diesel::result::Error> {
+    pub fn get_or_create(name: &Departments) -> Result<Self, diesel::result::Error> {
         let find = Self::get_id(name);
-        match find.into_iter().next() {
-            Some(x) => Ok(x),
-            None => Self::new(name).load(),
+        match find {
+            Ok(x) => Ok(x),
+            Err(e) => {
+                match e {
+                    Error::NotFound => Self::new(name).load(),
+                    _ => Err(e),
+                }
+            }
         }
     }
+    
+    pub fn get_department_name(&self) -> Departments {
+        match self.dept_name.as_str() {
+           "flunky" => Departments::Flunky,
+           "supervisor" => Departments::Supervisor,
+           _ => Departments::Client,
+        }
+    }
+
 }
 
 impl NewDept<'_> {
@@ -109,7 +149,7 @@ impl<'de> Deserialize<'de> for GenericBodyAccount {
     where D: serde::Deserializer<'de>
     {
         let email: &str =  Deserialize::deserialize(deserializer)?;
-        if let Some(account) = Account::get(email) {
+        if let Ok(account) = Account::get(email) {
             return Ok(Self {account});
         }
         Err(serde::de::Error::custom(format!("Account not found for email \"{}\".", email)))
@@ -129,20 +169,15 @@ impl Account {
         }
     }
 
-    pub fn get<'a>(mail: &'a str) -> Option<Account> {
+    pub fn get<'a>(mail: &'a str) -> Result<Account, Error> {
  
         use crate::schema::account::dsl::*;
 
-        let results: Vec<Self> = account 
+        let results: Result<Self, Error> = account 
             .filter(email.eq(mail))
-            .load::<Self>(&mut establish_connection())
-            .expect("Error loading accounts");
-
-        match results.into_iter().next() {
-            Some(x) => Some(x),
-            None => None,
-        }
-
+            .first(&mut establish_connection());
+        
+        results
     }
 
     /// Get the specified user's password hash (if they exist).
@@ -150,8 +185,8 @@ impl Account {
         // This has to be "mail" instead of "email" because it
         // has a field named "email", and the collide.
         match Self::get(mail) {
-            Some(w) => Some(w.password_hash),
-            None => None,
+            Ok(w) => Some(w.password_hash),
+            Err(_) => None,
         }
     }
     
@@ -161,6 +196,16 @@ impl Account {
         let i_body = Message::new(&self, body).load()?;
 
         Ticket::new(&self, i_title, i_body).load()
+    }
+    
+    pub fn get_dept(&self) -> Result<Dept, Error> {
+         
+        use crate::schema::dept::dsl::*;
+
+        let results: Result<Dept, Error> = dept 
+            .filter(id.eq(self.id))
+            .first(&mut establish_connection());
+        results
     }
 
 }
@@ -185,7 +230,7 @@ pub struct Message {
     id: i64,
     author: i32,
     date: SystemTime,
-    content: String
+    pub content: String
 }
 
 #[derive(Insertable)]
@@ -207,6 +252,14 @@ impl Message {
             content,
         }
     }
+    pub fn get(find_id: i64) -> Result<Self, Error> {
+        use crate::schema::message::dsl::*;
+
+        let results: Result<Self, Error> = message 
+            .filter(id.eq(find_id))
+            .first(&mut establish_connection()); 
+        results       
+    }
 }
 
 impl NewMessage<'_> {
@@ -223,12 +276,12 @@ impl NewMessage<'_> {
 //=======================================
 //              Ticket
 //=======================================
-#[derive(Queryable)]
+#[derive(Queryable, Serialize)]
 pub struct Ticket {
     pub id: i32,
-    owner: i32,
-    title: i64,
-    description: i64,
+    pub owner: i32,
+    pub title: i64,
+    pub description: i64,
 }
 
 #[derive(Insertable)]
@@ -240,7 +293,7 @@ pub struct NewTicket {
 }
 
 /// [`Ticket`] as represented by the body of a HTTP request.
-#[derive(Deserialize)]
+#[derive(FromForm)]
 pub struct BodyTicket<'a> {
     pub title: &'a str,
     pub body: &'a str,
@@ -255,18 +308,17 @@ impl Ticket {
         }
     }
     
-    pub fn get(find_id: i32) -> Option<Ticket> {
+    pub fn get(find_id: i32) -> Result<Ticket, Error> {
         use crate::schema::ticket::dsl::*;
 
-        let results: Self = ticket 
+        let results: Result<Self, Error> = ticket 
             .filter(id.eq(find_id))
-            .first(&mut establish_connection())
-            .expect("Error loading tickets.");
-            
-        Some(results)
+            .first(&mut establish_connection()); 
+        results
     }
 
-    pub fn get_all_for(user: &Account) -> Vec<i32> {
+    /// Get all the tickets assigned to the passed account.
+    pub fn get_all_for(user: &Account) -> Result<Vec<i32>, Error> {
                 
         let results = assignment::dsl::assignment
             .inner_join(
@@ -275,10 +327,22 @@ impl Ticket {
                 )
             )
             .select(ticket::dsl::id)
-            .load(&mut establish_connection())
-            .expect("Failed to find tickets for user.");
-
+            .load(&mut establish_connection());
         results
+    }
+    
+    pub fn get_all_owned(user: &Account) -> Result<Vec<Self>, Error> {
+       use crate::schema::ticket::dsl::*; 
+
+        let results: Result<Vec<Self>, Error> = ticket
+            .filter(owner.eq(user.id))
+            .load(&mut establish_connection());
+        
+        results
+    }
+
+    pub fn get_all_unassigned() {
+        
     }
 
 }

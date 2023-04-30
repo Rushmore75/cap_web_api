@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Client Dashboard</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='style.css'>
+    <script src='client.js'></script>
+</head>
+<body>
+    <h1>Tickets</h1>
+    <hr>
+    <div id="tickets" class="list"></div>  
+    <hr>
+    <h1>Submit new ticket</h1>
+    <form action="/api/submit_ticket" method="post">
+        <input type="text" name="title" placeholder="Title">
+        <textarea name="body" placeholder="Explain your issue"></textarea>
+        <input type="submit" value="Submit Issue">
+    </form>
+</body>
+</html>
