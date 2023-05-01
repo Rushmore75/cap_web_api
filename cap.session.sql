@@ -27,4 +27,4 @@ INSERT INTO dept (dept_name) VALUES('supervisor');
 UPDATE account SET dept = 2 WHERE email LIKE '%e%@mail.com';
 
 -- @block
-UPDATE account SET dept = 1 WHERE email = 'bob@mail.com';
+UPDATE account SET dept = 3 WHERE email = 'bob@mail.com';
