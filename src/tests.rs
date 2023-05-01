@@ -42,6 +42,6 @@ fn create_users() {
 }
 
 #[test]
-fn create_tickets() {
-
+fn start_again() {
+    start();
 }

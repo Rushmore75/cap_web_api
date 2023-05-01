@@ -3,7 +3,8 @@ use std::fmt::Display;
 use std::time::SystemTime;
 
 use diesel::prelude::*;
-use diesel::result::Error;
+use diesel::result::{Error, DatabaseErrorKind};
+use diesel::upsert::on_constraint;
 use diesel::{PgConnection, Connection};
 use rocket::FromForm;
 use serde::{Deserialize, Serialize};
@@ -59,12 +60,20 @@ impl Display for Department {
 }
 
 impl Dept {
-    pub fn new(name: &Department) -> NewDept<'static> {
+    fn new(name: &Department) -> NewDept<'static> {
         NewDept {
             dept_name: name.as_string()
         }
     }
-    
+        
+    pub fn register() -> Result<(), Error> {
+
+        Self::new(&Department::Client).load()?;
+        Self::new(&Department::Flunky).load()?;
+        Self::new(&Department::Supervisor).load()?;
+        Ok(())
+    }
+   
     pub fn get_id(name: &Department) -> Result<Self, Error> {
         use crate::schema::dept::dsl::*;
 
@@ -73,20 +82,7 @@ impl Dept {
             .first(&mut establish_connection());
         
         results 
-    }
-    
-    pub fn get_or_create(name: &Department) -> Result<Self, diesel::result::Error> {
-        let find = Self::get_id(name);
-        match find {
-            Ok(x) => Ok(x),
-            Err(e) => {
-                match e {
-                    Error::NotFound => Self::new(name).load(),
-                    _ => Err(e),
-                }
-            }
-        }
-    }
+    }  
     
     pub fn get_department_name(&self) -> Department {
         match self.dept_name.as_str() {
@@ -115,12 +111,14 @@ impl Dept {
 }
 
 impl NewDept<'_> {
-    pub fn load(&self) -> Result<Dept, diesel::result::Error> {
-        let mut conn = establish_connection(); 
-
+    /// Will do nothing on conflict
+    fn load(&self) -> Result<usize, diesel::result::Error> {
         let result = diesel::insert_into(dept::table)
             .values(self)
-            .get_result(&mut conn);
+            .on_conflict(on_constraint("dept_dept_name_key"))
+            .do_nothing()
+            .execute(&mut establish_connection());
+            // .get_result(&mut conn);
         result
     } 
 }

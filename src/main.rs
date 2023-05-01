@@ -7,6 +7,7 @@ mod authentication;
 #[cfg(test)]
 mod tests;
 
+use db::Dept;
 use dotenvy::dotenv;
 use rocket::{routes, tokio::sync::RwLock, fs::FileServer, Ignite, Rocket, launch, Build};
 use pages::{api::*, dashboard::*};
@@ -18,6 +19,8 @@ pub const WWW: &'static str = "./wwwsrc/";
 #[launch]
 fn start() -> Rocket<Build> {
     dotenv().ok();
+    
+    Dept::register().unwrap();
 
     rocket::build()
         .mount("/", routes![

@@ -106,7 +106,7 @@ pub fn owned_tickets(auth: Session) -> Option<Json<Vec<(String, String)>>> {
 #[post("/api/create_user", data="<body>")]
 pub fn create_user(body: Json<BodyAccount>) -> status::Custom<&'static str> {
     
-    match Dept::get_or_create(&crate::db::Department::Client) {
+    match Dept::get_id(&crate::db::Department::Client) {
         Ok(dept) => {
             match Account::new(
                 body.email,
