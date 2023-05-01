@@ -145,7 +145,7 @@ pub struct NewAccount<'a> {
 }
 
 /// [`Account`] as represented in the body of a HTTP request.
-#[derive(Deserialize, FromForm)]
+#[derive(Deserialize, FromForm, Serialize)]
 pub struct BodyAccount<'a> {
     pub email: &'a str,
     pub password: &'a str,

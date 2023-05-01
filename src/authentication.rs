@@ -172,8 +172,6 @@ impl<'r> FromRequest<'r> for Session {
                 }    
             };
         };
-
-        // Logging in with a session id and email/password combo have both failed        
         Outcome::Failure((Status::Unauthorized, LoginError::Error))
     }
 }
