@@ -389,7 +389,7 @@ pub struct NewAssignment {
 #[derive(Deserialize)]
 pub struct BodyAssignment {
     /// Vec of emails of accounts that this is assigned to
-    pub assigned_to: Vec<GenericBodyAccount>,
+    pub assigned_to: Vec<String>,
     pub ticket: i32
 }
 

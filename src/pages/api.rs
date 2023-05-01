@@ -54,19 +54,25 @@ pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
         // make sure the selected ticket is real
         if let Ok(ticket) = Ticket::get(body.ticket) {
             // iterate thru all assignees to make sure they exist
-            body.assigned_to.iter().fold(Vec::new(), |mut v, f| {
-                // assign the ticket to all of them
-                match Assignment::new(&from, &f.account, &ticket).load() {
-                    Ok(e) => {v.push(e.id)},
-                    Err(e) => {
-                        // Cancel the operation
-                        // TODO undo all tickets assigned thus far
-                        // looking for sql transaction iirc
-                        todo!()
+            body
+                .assigned_to
+                .iter()
+                .map(|f| Account::get(f))
+                .filter(|f| f.is_ok())
+                .map(|f| f.unwrap())
+                .fold(Vec::new(), |mut v, f| {
+                    // assign the ticket to all of them
+                    match Assignment::new(&from, &f, &ticket).load() {
+                        Ok(e) => {v.push(e.id)},
+                        Err(e) => {
+                            // Cancel the operation
+                            // TODO undo all tickets assigned thus far
+                            // looking for sql transaction iirc
+                            todo!()
+                        }
                     }
-                }
-                v
-            });
+                    v
+                });
         }
     }
 }
@@ -136,4 +142,10 @@ pub fn get_employees(_auth: Session) -> Json<Vec<String>> {
     Json::from(Vec::new())
 }
 
-
+#[get("/api/message/<id>")]
+pub fn get_msg(id: i64, _auth: Session) -> Json<String> {
+    match Message::get(id) {
+        Ok(e) => Json::from(e.content),
+        Err(_) => Json::from("".to_owned())
+    }
+}

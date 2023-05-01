@@ -14,7 +14,7 @@ window.onload = function(){
                         const body = document.createElement("p")
                     
                         const form = document.createElement("form")
-                        form.id = i
+                        form.id = ticket[i].id
 
                         employees.forEach(emp => {
                             const input = document.createElement("input")
@@ -31,11 +31,43 @@ window.onload = function(){
                         const submit = document.createElement("input")
                         submit.type = "submit"
                         submit.value = "Assign"
-                        submit.onclick = console.log(i)
+                        submit.onclick = () => {
+                            var sending = {
+                                ticket: ticket[i].id,
+                                assigned_to: []
+                            };
+                            const f = document.getElementById(ticket[i].id)
+                            console.log(f)
+                            f.childNodes.forEach(child => {
+                                if (child.type == "checkbox" ) {
+                                    if (child.checked) {
+                                        sending.assigned_to.push(child.id)
+                                    }
+                                }
+                            });
+
+                            fetch("http://127.0.0.1:8000/api/assign_ticket/", {
+                                method: 'POST',
+                                body: JSON.stringify(sending)
+                            })
+                            .then(response => response.json())
+                            return false
+                        }
+
                         form.appendChild(submit)
                     
-                        header.innerText = ticket[i][0]
-                        body.innerText = ticket[i][1]
+                        fetch("http://127.0.0.1:8000/api/message/"+ticket[i].title)
+                            .then((response) => response.json())
+                            .then((title) => {
+                                header.innerText = title 
+                            })                   
+                            
+                        fetch("http://127.0.0.1:8000/api/message/"+ticket[i].description)
+                            .then((response) => response.json())
+                            .then((content) => {
+                                body.innerText = content 
+                            })                  
+
                         div.appendChild(header)
                         div.appendChild(body)
                         div.appendChild(form)

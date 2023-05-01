@@ -17,4 +17,3 @@ pub async fn dashboard(auth: Session) -> Result<NamedFile, std::io::Error> {
     todo!();
     // File::open(format!("{WWW}/www/login.html")).await
 }
-

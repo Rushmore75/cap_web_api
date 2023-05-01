@@ -30,7 +30,8 @@ async fn main() -> Result<(), rocket::Error> {
             my_tickets,
             get_employees,
             dashboard,
-            unassigned_tickets
+            unassigned_tickets,
+            get_msg,
             ])
         .mount("/", FileServer::from(format!("{WWW}www")))
         // a hashmap of all logged in users (effectively)
