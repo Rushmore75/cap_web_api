@@ -1,4 +1,4 @@
-use rocket::{get, serde::json::Json, post, response::{status, Redirect}, http::{Status, CookieJar}, tokio::sync::RwLock, State, form::{Form, Strict}};
+use rocket::{get, serde::json::Json, post, response::{status, Redirect}, http::{Status, CookieJar, Cookie}, tokio::sync::RwLock, State, form::{Form, Strict}, uri};
 
 use crate::{db::{Account, BodyAccount, Dept, Ticket, BodyTicket, Message, Assignment, BodyAssignment}, authentication::{Session, Keyring}};
 
@@ -18,18 +18,19 @@ pub async fn logout(auth: Session, keyring: &State<RwLock<Keyring>>, jar: &Cooki
 }
 
 #[post("/api/submit_ticket", data="<body>")]
-pub async fn submit_ticket(auth: Session, body: Form<Strict<BodyTicket<'_>>>) -> status::Custom<String> {
+pub fn submit_ticket(auth: Session, body: Form<Strict<BodyTicket<'_>>>, jar: &CookieJar<'_>) -> Result<Redirect, status::Custom<&'static str>> {
 
     if let Ok(account) = Account::get(&auth.email) {
         if let Ok(title) = Message::new(&account, body.title).load() {
             if let Ok(content) = Message::new(&account, body.body).load() {
                 if let Ok(ticket) = Ticket::new(&account, title, content).load() {
-                    return status::Custom(Status::Accepted, format!("{}", ticket.id));
+                    jar.add(Cookie::new("submit_success", ticket.id.to_string()));
+                    return Ok(Redirect::to(uri!("/dashboard")))
                 }
             }
         }
     }
-    status::Custom(Status::InternalServerError, "Could not create the ticket.".to_owned())                        
+    Err(status::Custom(Status::InternalServerError, "Could not create the ticket."))                        
 }
 
 #[get("/api/unassigned")]
@@ -39,8 +40,7 @@ pub fn unassigned_tickets(_auth: Session) -> Json<Vec<Ticket>> {
         let x = all
             .iter()
             .map(|f| Ticket::get(*f))
-            .filter(|f| f.is_ok())
-            .map(|f| f.unwrap())
+            .filter_map(|f| f.ok())
             .collect::<Vec<Ticket>>();
         return Json::from(x);
     }
@@ -64,7 +64,7 @@ pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
                     // assign the ticket to all of them
                     match Assignment::new(&from, &f, &ticket).load() {
                         Ok(e) => {v.push(e.id)},
-                        Err(e) => {
+                        Err(_) => {
                             // Cancel the operation
                             // TODO undo all tickets assigned thus far
                             // looking for sql transaction iirc
@@ -78,11 +78,23 @@ pub fn assign_ticket(auth: Session, body: Json<BodyAssignment>) {
 }
 
 #[get("/api/tickets")]
-pub fn my_tickets(auth: Session) {
+pub fn my_tickets(auth: Session) -> Json<Vec<(i32, String, String)>> {
     if let Ok(acc) = Account::get(&auth.email) {
-        let tickets = Ticket::get_all_for(&acc);
-        println!("{:?}", tickets);
+        if let Ok(tickets) = Ticket::get_all_for(&acc) {
+            let x = tickets
+                .iter()
+                .filter_map(|f| Ticket::get(*f).ok())
+                .map(|f| (f.id, Message::get(f.title), Message::get(f.description))) 
+                .fold(Vec::new(), |mut v, f| {
+                    if f.1.is_ok() && f.2.is_ok() {
+                        v.push((f.0, f.1.unwrap().content, f.2.unwrap().content))    
+                    }
+                    v
+                });
+            return Json::from(x);
+       }
     }
+    Json::from(Vec::new())
 }
 
 #[get("/api/owned_tickets")]
@@ -148,4 +160,14 @@ pub fn get_msg(id: i64, _auth: Session) -> Json<String> {
         Ok(e) => Json::from(e.content),
         Err(_) => Json::from("".to_owned())
     }
+}
+
+#[post("/api/complete_ticket/<id>")]
+pub fn complete_ticket(_auth: Session, id: i32) -> status::Custom<&'static str> {
+    if let Ok(ticket) = Ticket::get(id) {
+        if let Ok(_) = ticket.close() {
+            return status::Custom(Status::Accepted, "marked as complete");
+        }
+    }
+    status::Custom(Status::BadRequest, "failed to complete ticket")
 }

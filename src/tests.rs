@@ -1,13 +1,16 @@
 use diesel::result::Error;
 use dotenvy::dotenv;
-use rocket::{serde::json::{serde_json::json, Json, self},  uri, http::Status, local::blocking::Client};
+use rocket::{uri, http::Status, local::blocking::Client, serde::json};
 
-use crate::{db::BodyAccount, main, start, pages::api};
+use crate::{db::BodyAccount, start, pages::api};
 
 
 
 #[test]
 fn dept_not_found() {
+    /*
+    Try to find a non existent department 
+    */
     use diesel::{QueryDsl, RunQueryDsl, ExpressionMethods};
     dotenv().ok();
 
@@ -21,6 +24,9 @@ fn dept_not_found() {
 
 #[test]
 fn create_users() {
+    /*
+    create a batch of new users 
+     */
     let accounts = [
         BodyAccount { email: "bob@mail.com", password: "1234" },
         BodyAccount { email: "jim@mail.com", password: "1234" },
@@ -43,5 +49,9 @@ fn create_users() {
 
 #[test]
 fn start_again() {
+    /*
+    Make sure that init scripts don't collied with previous runs 
+     */
+    start();
     start();
 }

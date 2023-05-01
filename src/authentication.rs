@@ -8,8 +8,6 @@ use serde::Serialize;
 use crate::db::Account;
 
 pub const SESSION_COOKIE_ID: &str = "session-id";
-const EMAIL_HEADER_ID: &str = "email";
-const PASSWORD_HEADER_ID: &str = "password";
 
 /// Not too sure if "keyring" is the correct terminology...
 /// This holds all the session ids that are currently active.
@@ -73,11 +71,6 @@ impl Keyring {
     #[must_use]
     fn is_valid_session_uuid(&self, uuid: &Uuid) -> bool {
         self.get_email_by_session_uuid(uuid).is_some()
-    }
-    
-    /// Get the email of a user based on their session id.
-    pub fn get_email(&self, session_id: &Session) -> Option<String> {
-        self.get_email_by_session_uuid(&session_id.uuid)
     }
     
     fn get_email_by_session_uuid(&self, uuid: &Uuid) -> Option<String> {

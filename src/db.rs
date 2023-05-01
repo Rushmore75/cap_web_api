@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::time::SystemTime;
 
 use diesel::prelude::*;
-use diesel::result::{Error, DatabaseErrorKind};
+use diesel::result::Error;
 use diesel::upsert::on_constraint;
 use diesel::{PgConnection, Connection};
 use rocket::FromForm;
@@ -351,6 +351,22 @@ impl Ticket {
             .load(&mut establish_connection());
         x
     }
+
+    pub fn close(&self) -> Result<(), Error>{
+        // Delete assignment
+        diesel::delete(
+        assignment::dsl::assignment
+            .filter(assignment::dsl::ticket.eq(self.id))
+        ).execute(&mut establish_connection())?;
+        // Delete ticket
+        diesel::delete(
+            ticket::dsl::ticket
+            .filter(ticket::dsl::id.eq(self.id))
+        ).execute(&mut establish_connection())?;
+
+        Ok(())
+    }
+
 
 }
 

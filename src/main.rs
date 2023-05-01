@@ -9,7 +9,7 @@ mod tests;
 
 use db::Dept;
 use dotenvy::dotenv;
-use rocket::{routes, tokio::sync::RwLock, fs::FileServer, Ignite, Rocket, launch, Build};
+use rocket::{routes, tokio::sync::RwLock, fs::FileServer, Rocket, launch, Build};
 use pages::{api::*, dashboard::*};
 
 
@@ -35,8 +35,9 @@ fn start() -> Rocket<Build> {
             dashboard,
             unassigned_tickets,
             get_msg,
+            complete_ticket,
             ])
-        .mount("/", FileServer::from(format!("{WWW}www")))
+        .mount("/", FileServer::from(format!("{WWW}static")))
         // a hashmap of all logged in users (effectively)
         .manage(RwLock::new(authentication::Keyring::new()))
 }

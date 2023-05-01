@@ -24,7 +24,7 @@ INSERT INTO dept (dept_name) VALUES('flunky');
 INSERT INTO dept (dept_name) VALUES('supervisor');
 
 -- @block
-UPDATE account SET dept = 4 WHERE email LIKE '%@email.com';
+UPDATE account SET dept = 2 WHERE email LIKE '%e%@mail.com';
 
 -- @block
-UPDATE account SET dept = 4 WHERE email = 'ike@mail.com';
+UPDATE account SET dept = 1 WHERE email = 'bob@mail.com';
