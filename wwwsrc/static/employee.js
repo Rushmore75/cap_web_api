@@ -17,7 +17,6 @@ window.onload = function(){
                 div.appendChild(header)
                 div.appendChild(body)
                 
-                // <input type="button" value="Click me" onclick="msg()"> 
                 const input = document.createElement("input")
                 input.type = "button"
                 input.value = "Complete"
