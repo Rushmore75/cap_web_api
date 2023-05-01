@@ -4,6 +4,9 @@ This is the capstone project from my time in college. It's a help desk submissio
 Backend is all built in Rust, with Rocket for website handling and Diesel ORM for interacting with the PostgreSQL database.
 Frontend is JS/HTML/CSS
 
+# Next
+It could use some CSS help, it's just very time consuming.
+
 # Developing:
 You will need [diesel](https://diesel.rs/) installed to work with the ORM.
 
