@@ -7,6 +7,8 @@ Frontend is JS/HTML/CSS
 # Next
 It could use some CSS help, it's just very time consuming.
 
+It should use the more updated version of my [authentication system](https://github.com/Rushmore75/rust_authentication) which has support for REDIS
+
 # Developing:
 You will need [diesel](https://diesel.rs/) installed to work with the ORM.
 
